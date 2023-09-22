@@ -23,16 +23,19 @@ services:
     depends_on:
       - db
     networks:
-        default:
-        internal:
+      default:
+        ipv4_address: 172.18.0.2
+      internal:
 
   nginx:
     image: nginx:stable
     restart: always
     volumes:
-      - ./conf/nginx/http.conf:/etc/nginx/nginx.conf
+      - ./conf/nginx/http.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt/:/etc/letsencrypt/:ro
     ports:
       - 80:80
+      - 443:443
     depends_on:
       - ctfd
 
@@ -61,5 +64,9 @@ services:
 
 networks:
     default:
+      ipam:
+        config:
+          - subnet: 172.18.0.0/16
+            gateway: 172.18.0.1
     internal:
         internal: true
