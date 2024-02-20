@@ -286,15 +286,13 @@ def dump_database_table(tablename):
     temp = StringIO()
     writer = csv.writer(temp)
 
-    header = [column.name for column in model.__mapper__.columns]
+    header = model.__mapper__.column_attrs.keys()
     writer.writerow(header)
 
     responses = model.query.all()
 
     for curr in responses:
-        writer.writerow(
-            [getattr(curr, column.name) for column in model.__mapper__.columns]
-        )
+        writer.writerow([getattr(curr, column) for column in header])
 
     temp.seek(0)
 
@@ -366,15 +364,32 @@ def load_challenges_csv(dict_reader):
         db.session.commit()
 
         if flags:
-            flags = [flag.strip() for flag in flags.split(",")]
-            for flag in flags:
-                f = Flags(
-                    type="static",
-                    challenge_id=challenge.id,
-                    content=flag,
-                )
-                db.session.add(f)
-                db.session.commit()
+            try:
+                # Allow for column to contain JSON for more flexible data entry
+                flags = json.loads(flags)
+                for flag in flags:
+                    type = flag.get("type", "static")
+                    content = flag.get("content", "")
+                    data = flag.get("data", None)
+                    f = Flags(
+                        challenge_id=challenge.id,
+                        type=type,
+                        content=content,
+                        data=data,
+                    )
+                    db.session.add(f)
+                    db.session.commit()
+
+            except json.JSONDecodeError:
+                flags = [flag.strip() for flag in flags.split(",")]
+                for flag in flags:
+                    f = Flags(
+                        type="static",
+                        challenge_id=challenge.id,
+                        content=flag,
+                    )
+                    db.session.add(f)
+                    db.session.commit()
 
         if tags:
             tags = [tag.strip() for tag in tags.split(",")]
@@ -387,14 +402,28 @@ def load_challenges_csv(dict_reader):
                 db.session.commit()
 
         if hints:
-            hints = [hint.strip() for hint in hints.split(",")]
-            for hint in hints:
-                h = Hints(
-                    challenge_id=challenge.id,
-                    content=hint,
-                )
-                db.session.add(h)
-                db.session.commit()
+            try:
+                # Allow for column to contain JSON for more flexible data entry
+                hints = json.loads(hints)
+                for hint in hints:
+                    content = hint.get("content", "")
+                    cost = hint.get("cost", 0)
+                    h = Hints(
+                        challenge_id=challenge.id,
+                        content=content,
+                        cost=cost,
+                    )
+                    db.session.add(h)
+                    db.session.commit()
+            except json.JSONDecodeError:
+                hints = [hint.strip() for hint in hints.split(",")]
+                for hint in hints:
+                    h = Hints(
+                        challenge_id=challenge.id,
+                        content=hint,
+                    )
+                    db.session.add(h)
+                    db.session.commit()
     if errors:
         return errors
     return True
